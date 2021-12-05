@@ -59,10 +59,8 @@ fn default_interval() -> Duration {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct DomainRecord {
-    #[serde(default = "Vec::new")]
-    pub a: Vec<String>,
-    #[serde(default = "Vec::new")]
-    pub aaaa: Vec<String>,
+    pub a: Option<String>,
+    pub aaaa: Option<String>,
 }
 
 pub fn load_config<P: AsRef<Path>>(source: P) -> DynResult<Config> {
@@ -77,7 +75,7 @@ pub fn load_config<P: AsRef<Path>>(source: P) -> DynResult<Config> {
         .filter_map(|(key, records)| {
             let records = records
                 .into_iter()
-                .filter(|record| !(record.a.is_empty() && record.aaaa.is_empty()))
+                .filter(|record| !(record.a.is_none() && record.aaaa.is_none()))
                 .collect::<Vec<_>>();
 
             if records.is_empty() {

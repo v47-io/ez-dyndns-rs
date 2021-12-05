@@ -28,16 +28,39 @@
  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
-pub use crate::dyndns::*;
-pub use ureq;
+use crate::result::DynResult;
+use anyhow::Context;
+use std::fmt::{Display, Formatter};
+use std::net::{Ipv4Addr, Ipv6Addr};
+use std::str::FromStr;
 
-pub mod config;
-mod dyndns;
-pub mod env;
-pub mod ez;
-mod ip;
-mod job;
-pub mod provider;
-pub mod result;
+pub(crate) enum Ip {
+    V4(Ipv4Addr),
+    V6(Ipv6Addr),
+}
+
+impl Display for Ip {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Ip::V4(ipv4) => write!(f, "(IPv4 {})", ipv4),
+            Ip::V6(ipv6) => write!(f, "(IPv6 {})", ipv6),
+        }
+    }
+}
+
+pub(crate) fn get_ip() -> DynResult<Ip> {
+    let raw_ip = ureq::get("https://icanhazip.com")
+        .call()
+        .context("failed to reach icanhazip.com")?
+        .into_string()
+        .context("failed to decode response")?;
+
+    Ok(if raw_ip.contains(':') {
+        Ip::V6(Ipv6Addr::from_str(&raw_ip).context("failed to parse IPv6")?)
+    } else {
+        Ip::V4(Ipv4Addr::from_str(&raw_ip).context("failed to parse IPv4")?)
+    })
+}

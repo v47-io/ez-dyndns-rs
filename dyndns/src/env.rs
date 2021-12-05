@@ -28,16 +28,31 @@
  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
-pub use crate::dyndns::*;
-pub use ureq;
+use anyhow::Context;
+use std::borrow::Borrow;
+use std::env;
+use std::ffi::OsStr;
 
-pub mod config;
-mod dyndns;
-pub mod env;
-pub mod ez;
-mod ip;
-mod job;
-pub mod provider;
-pub mod result;
+use zeroize::Zeroize;
+
+use crate::result::DynResult;
+
+#[derive(Zeroize)]
+#[zeroize(drop)]
+pub struct Secret(String);
+
+impl Borrow<str> for Secret {
+    fn borrow(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+pub fn secret<K: AsRef<OsStr>>(key: K) -> DynResult<Secret> {
+    env::var(key.as_ref()).map(Secret).context(format!(
+        "failed to retrieve env var {}",
+        key.as_ref().to_string_lossy()
+    ))
+}

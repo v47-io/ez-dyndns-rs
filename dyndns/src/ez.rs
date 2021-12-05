@@ -28,16 +28,38 @@
  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
-pub use crate::dyndns::*;
-pub use ureq;
+use std::path::Path;
+use std::process::exit;
 
-pub mod config;
-mod dyndns;
-pub mod env;
-pub mod ez;
-mod ip;
-mod job;
-pub mod provider;
-pub mod result;
+use crate::config::load_config;
+use crate::provider::DnsProvider;
+
+pub fn run<D: DnsProvider, P: AsRef<Path>>(config_path: P, provider: D) {
+    let config = match load_config(config_path) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            exit(1);
+        }
+    };
+
+    crate::run(&config, &provider);
+}
+
+pub fn run_once<D: DnsProvider, P: AsRef<Path>>(config_path: P, provider: D) {
+    let config = match load_config(config_path) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            exit(1);
+        }
+    };
+
+    if let Err(err) = crate::run_once(&config, &provider) {
+        eprintln!("{:?}", err);
+        exit(1);
+    }
+}

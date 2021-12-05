@@ -31,24 +31,33 @@
  */
 
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 use crate::config::Config;
 use crate::result::DynResult;
 
+pub type DnsZones = HashMap<String, DnsRecords>;
+
+pub type DnsRecords = Vec<Record>;
+
 pub trait DnsProvider {
-    fn current(config: &Config) -> DynResult<HashMap<String, ZoneInfo>>;
+    fn current(&self, config: &Config) -> DynResult<DnsZones>;
 
-    fn update(zone: &str, record: Record) -> DynResult<()>;
+    fn update(&self, zone: &str, record: Record) -> DynResult<()>;
 }
 
-#[derive(Debug, PartialEq)]
-pub struct ZoneInfo {
-    pub records: Vec<Record>,
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Record {
     A { name: String, value: Ipv4Addr },
     AAAA { name: String, value: Ipv6Addr },
+}
+
+impl Display for Record {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Record::A { name, value } => write!(f, "(A {}): {}", name, value),
+            Record::AAAA { name, value } => write!(f, "(AAAA {}): {}", name, value),
+        }
+    }
 }
