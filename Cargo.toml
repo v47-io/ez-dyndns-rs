@@ -1,0 +1,3 @@
+[workspace]
+
+members = ["dyndns", "dyndns-aws-route53"]

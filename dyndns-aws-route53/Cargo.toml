@@ -1,0 +1,11 @@
+[package]
+name = "dyndns-aws-route53"
+version = "0.1.0"
+edition = "2021"
+authors = ["Alex Katlein <dev@vemilyus.com>"]
+license = "BSD 3-Clause"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dyndns = { path = "../dyndns" }
