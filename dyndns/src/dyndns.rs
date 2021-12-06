@@ -28,6 +28,7 @@
  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -41,7 +42,7 @@ use chrono::Local;
 use crate::config::Config;
 use crate::ip::{get_ip, Ip};
 use crate::job::start_job;
-use crate::provider::{DnsProvider, DnsZones, Record};
+use crate::provider::{DnsProvider, DnsZones, Record, Zone};
 use crate::result::DynResult;
 
 pub fn run<P: DnsProvider>(config: &Config, provider: &P) {
@@ -116,15 +117,20 @@ fn update_a_record<P: DnsProvider>(
         return;
     };
 
-    let current_record = current_zones.get(zone).map(|zone_content| {
-        zone_content.iter().find(|&record| {
-            if let Record::A { name, .. } = record {
-                name == a_record
-            } else {
-                false
-            }
-        })
-    });
+    let zone = current_zones.find_or_create(zone);
+
+    let current_record = current_zones
+        .iter()
+        .find(|(zone_id, _)| zone_id == &&zone)
+        .map(|(_, zone_content)| {
+            zone_content.iter().find(|&record| {
+                if let Record::A { name, .. } = record {
+                    name == a_record
+                } else {
+                    false
+                }
+            })
+        });
 
     let current_value = if let Some(Some(record)) = current_record {
         match record {
@@ -146,13 +152,13 @@ fn update_a_record<P: DnsProvider>(
                 "Updating A record {}: {} => {}",
                 a_record, current_value, address
             );
-            wrap_update(provider, zone, new_record)
+            wrap_update(provider, &zone, new_record)
         } else {
             println!("Not updating {}: Unchanged", a_record);
         }
     } else {
         println!("Creating A record {}: {}", a_record, address);
-        wrap_update(provider, zone, new_record)
+        wrap_update(provider, &zone, new_record)
     }
 }
 
@@ -169,15 +175,20 @@ fn update_aaaa_record<P: DnsProvider>(
         return;
     };
 
-    let current_record = current_zones.get(zone).map(|zone_content| {
-        zone_content.iter().find(|&record| {
-            if let Record::AAAA { name, .. } = record {
-                name == aaaa_record
-            } else {
-                false
-            }
-        })
-    });
+    let zone = current_zones.find_or_create(zone);
+
+    let current_record = current_zones
+        .iter()
+        .find(|(zone_id, _)| zone_id == &&zone)
+        .map(|(_, zone_content)| {
+            zone_content.iter().find(|&record| {
+                if let Record::AAAA { name, .. } = record {
+                    name == aaaa_record
+                } else {
+                    false
+                }
+            })
+        });
 
     let current_value = if let Some(Some(record)) = current_record {
         match record {
@@ -199,17 +210,17 @@ fn update_aaaa_record<P: DnsProvider>(
                 "Updating AAAA record {}: {} => {}",
                 aaaa_record, current_value, address
             );
-            wrap_update(provider, zone, new_record)
+            wrap_update(provider, &zone, new_record)
         } else {
             println!("Not updating {}: Unchanged", aaaa_record);
         }
     } else {
         println!("Creating AAAA record {}: {}", aaaa_record, address);
-        wrap_update(provider, zone, new_record)
+        wrap_update(provider, &zone, new_record)
     }
 }
 
-fn wrap_update<P: DnsProvider>(provider: &P, zone: &str, record: Record) {
+fn wrap_update<P: DnsProvider>(provider: &P, zone: &Zone, record: Record) {
     let result = provider.update(zone, record.clone());
 
     if let Err(err) = result {
@@ -217,5 +228,18 @@ fn wrap_update<P: DnsProvider>(provider: &P, zone: &str, record: Record) {
             "{:?}",
             err.context(format!("failed to update record {}", record))
         )
+    }
+}
+
+trait FindOrCreateZone {
+    fn find_or_create(&self, zone: &str) -> Zone;
+}
+
+impl FindOrCreateZone for DnsZones {
+    fn find_or_create(&self, zone: &str) -> Zone {
+        self.keys()
+            .find(|key| key.name == zone)
+            .cloned()
+            .unwrap_or_else(|| Zone::new(zone.into()))
     }
 }

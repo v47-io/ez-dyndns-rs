@@ -28,6 +28,7 @@
  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 
 use std::collections::HashMap;
@@ -59,7 +60,9 @@ fn default_interval() -> Duration {
 
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct DomainRecord {
+    #[serde(alias = "A")]
     pub a: Option<String>,
+    #[serde(alias = "AAAA")]
     pub aaaa: Option<String>,
 }
 
@@ -97,5 +100,54 @@ pub fn load_config<P: AsRef<Path>>(source: P) -> DynResult<Config> {
         })
     } else {
         Err(Error::msg("config is empty"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::collections::HashMap;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_load_config() {
+        let mut file = NamedTempFile::new().unwrap();
+        file.write_all(
+            r#"---
+zones:
+  test.com:
+    - a: '*.test.com'
+    - a: test.com
+"#
+            .as_bytes(),
+        )
+        .unwrap();
+
+        let config = load_config(file).unwrap();
+
+        let mut zones = HashMap::new();
+        zones.insert(
+            "test.com".into(),
+            vec![
+                DomainRecord {
+                    a: Some("*.test.com".into()),
+                    aaaa: None,
+                },
+                DomainRecord {
+                    a: Some("test.com".into()),
+                    aaaa: None,
+                },
+            ],
+        );
+
+        assert_eq!(
+            Config {
+                interval: default_interval(),
+                zones
+            },
+            config
+        )
     }
 }

@@ -31,63 +31,13 @@
  *
  */
 
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::hash::{Hash, Hasher};
-use std::net::{Ipv4Addr, Ipv6Addr};
+use dyndns::ez;
+use dyndns_aws_route53::AwsRoute53Provider;
 
-use crate::config::Config;
-use crate::result::DynResult;
-
-pub type DnsZones = HashMap<Zone, DnsRecords>;
-
-pub type DnsRecords = Vec<Record>;
-
-pub trait DnsProvider {
-    fn current(&self, config: &Config) -> DynResult<DnsZones>;
-
-    fn update(&self, zone: &Zone, record: Record) -> DynResult<()>;
-}
-
-#[derive(Clone, Debug, Eq)]
-pub struct Zone {
-    pub name: String,
-    pub id: Option<String>,
-}
-
-impl Zone {
-    pub fn new(name: String) -> Zone {
-        Zone { name, id: None }
-    }
-
-    pub fn with_id(name: String, id: String) -> Zone {
-        Zone { name, id: Some(id) }
-    }
-}
-
-impl Hash for Zone {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state)
-    }
-}
-
-impl PartialEq for Zone {
-    fn eq(&self, other: &Self) -> bool {
-        other.name == self.name
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Record {
-    A { name: String, value: Ipv4Addr },
-    AAAA { name: String, value: Ipv6Addr },
-}
-
-impl Display for Record {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Record::A { name, value } => write!(f, "(A {}): {}", name, value),
-            Record::AAAA { name, value } => write!(f, "(AAAA {}): {}", name, value),
-        }
-    }
+fn main() {
+    ez::cli(
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        AwsRoute53Provider::default,
+    )
 }

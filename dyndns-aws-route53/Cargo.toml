@@ -9,3 +9,10 @@ license = "BSD 3-Clause"
 
 [dependencies]
 dyndns = { path = "../dyndns" }
+aws-config = "0.2.0"
+aws-sdk-route53 = "0.2.0"
+futures = { version = "0.3.18", features = ["executor", "thread-pool"] }
+
+[[bin]]
+name = "dyndnsd-aws-route53"
+path = "src/bin.rs"
