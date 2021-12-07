@@ -63,7 +63,7 @@ impl AwsRoute53Provider {
     pub fn with_runtime(runtime: Rc<Runtime>) -> Self {
         let build_instance = async {
             let region_provider =
-                RegionProviderChain::default_provider().or_else(Region::new("us-west-1"));
+                RegionProviderChain::default_provider().or_else(Region::new("us-east-1"));
 
             let config = aws_config::from_env().region(region_provider).load().await;
             let client = Client::new(&config);
