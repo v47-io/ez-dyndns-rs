@@ -33,6 +33,7 @@
 
 pub use crate::dyndns::*;
 pub use anyhow;
+pub use pico_args;
 pub use ureq;
 
 pub mod config;

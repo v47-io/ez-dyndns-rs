@@ -36,21 +36,31 @@ use aws_sdk_route53::model::{
     Change, ChangeAction, ChangeBatch, HostedZone, ResourceRecord, ResourceRecordSet, RrType,
 };
 use aws_sdk_route53::{Client, Region};
-use dyndns::anyhow::Error;
 use dyndns::config::Config;
 use dyndns::provider::{DnsProvider, DnsRecords, DnsZones, Record, Zone};
 use dyndns::result::DynResult;
 use std::collections::HashMap;
+use std::error::Error;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::ops::Add;
+use std::rc::Rc;
 use std::str::FromStr;
+use tokio::runtime::Runtime;
 
 pub struct AwsRoute53Provider {
+    runtime: Rc<Runtime>,
     client: Client,
     _config: aws_config::Config,
 }
 
 impl Default for AwsRoute53Provider {
     fn default() -> Self {
+        AwsRoute53Provider::with_runtime(Rc::new(Runtime::new().unwrap()))
+    }
+}
+
+impl AwsRoute53Provider {
+    pub fn with_runtime(runtime: Rc<Runtime>) -> Self {
         let build_instance = async {
             let region_provider =
                 RegionProviderChain::default_provider().or_else(Region::new("us-west-1"));
@@ -59,22 +69,23 @@ impl Default for AwsRoute53Provider {
             let client = Client::new(&config);
 
             AwsRoute53Provider {
+                runtime: Rc::clone(&runtime),
                 client,
                 _config: config,
             }
         };
 
-        futures::executor::block_on(build_instance)
+        runtime.block_on(build_instance)
     }
 }
 
 impl DnsProvider for AwsRoute53Provider {
     fn current(&self, config: &Config) -> DynResult<DnsZones> {
-        futures::executor::block_on(current(self, config))
+        self.runtime.block_on(current(self, config))
     }
 
     fn update(&self, zone: &Zone, record: Record) -> DynResult<()> {
-        futures::executor::block_on(update(self, zone, record))
+        self.runtime.block_on(update(self, zone, record))
     }
 }
 
@@ -97,7 +108,7 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                         .into_iter()
                         .filter(|hosted_zone| {
                             if let Some(hz_name) = &hosted_zone.name {
-                                config.zones.contains_key(hz_name)
+                                config.zones.contains_key(hz_name.as_internal())
                             } else {
                                 false
                             }
@@ -112,27 +123,29 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                     break;
                 }
             }
-            Err(err) => return Err(Error::from(err)),
+            Err(err) => return Err(dyndns::anyhow::Error::from(err)),
         }
     }
 
     let mut result = HashMap::new();
     for aws_zone in aws_zones {
-        let aws_zone_name = aws_zone.name.unwrap();
-        let configured_zone = config.zones.get(&aws_zone_name).unwrap();
-
         let mut dns_records: DnsRecords = Vec::new();
 
-        let aws_zone_id = aws_zone.id.unwrap();
+        let aws_zone_id = aws_zone.zone_id();
+        let aws_zone_name = aws_zone.name.unwrap();
+        let configured_zone = config.zones.get(aws_zone_name.as_internal()).unwrap();
+
         let mut last_aws_record_identifier = None;
         loop {
             let aws_list_records_request = provider
                 .client
                 .list_resource_record_sets()
-                .hosted_zone_id(&aws_zone_id)
+                .hosted_zone_id(aws_zone_id.clone())
                 .set_start_record_identifier(last_aws_record_identifier.clone());
 
-            match aws_list_records_request.send().await {
+            let aws_response = aws_list_records_request.send().await;
+
+            match aws_response {
                 Ok(aws_output) => {
                     dns_records.append(
                         &mut aws_output
@@ -140,7 +153,9 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                             .unwrap_or_default()
                             .into_iter()
                             .filter_map(|record_set| {
-                                let record_set_name = record_set.name.unwrap();
+                                let record_set_name =
+                                    record_set.name.unwrap().as_internal().to_string();
+
                                 let record_set_type = record_set.r#type.unwrap();
 
                                 configured_zone
@@ -178,6 +193,7 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                                                 },
                                             )
                                             .unwrap(),
+                                            ttl: record_set.ttl.unwrap().try_into().unwrap(),
                                         }),
                                         RrType::Aaaa => Some(Record::AAAA {
                                             name: record_set_name,
@@ -191,6 +207,7 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                                                 },
                                             )
                                             .unwrap(),
+                                            ttl: record_set.ttl.unwrap().try_into().unwrap(),
                                         }),
                                         _ => None,
                                     }
@@ -207,11 +224,19 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                         break;
                     }
                 }
-                Err(err) => return Err(Error::from(err)),
+                Err(err) => {
+                    eprintln!("{:?}", err);
+                    eprintln!("{:?}", err.source());
+
+                    return Err(dyndns::anyhow::Error::from(err));
+                }
             }
         }
 
-        result.insert(Zone::with_id(aws_zone_name, aws_zone_id), dns_records);
+        result.insert(
+            Zone::with_id(aws_zone_name.as_internal().into(), aws_zone_id),
+            dns_records,
+        );
     }
 
     Ok(result)
@@ -234,22 +259,7 @@ async fn update(provider: &AwsRoute53Provider, zone: &Zone, record: Record) -> D
                 .changes(
                     Change::builder()
                         .action(ChangeAction::Upsert)
-                        .resource_record_set(match &record {
-                            Record::A { name, value } => ResourceRecordSet::builder()
-                                .name(name)
-                                .r#type(RrType::A)
-                                .resource_records(
-                                    ResourceRecord::builder().value(value.to_string()).build(),
-                                )
-                                .build(),
-                            Record::AAAA { name, value } => ResourceRecordSet::builder()
-                                .name(name)
-                                .r#type(RrType::Aaaa)
-                                .resource_records(
-                                    ResourceRecord::builder().value(value.to_string()).build(),
-                                )
-                                .build(),
-                        })
+                        .resource_record_set(record.to_resource_record_set())
                         .build(),
                 )
                 .build(),
@@ -258,4 +268,61 @@ async fn update(provider: &AwsRoute53Provider, zone: &Zone, record: Record) -> D
         .await?;
 
     Ok(())
+}
+
+trait AwsDomainName {
+    fn as_internal(&self) -> &str;
+
+    fn to_aws(&self) -> String;
+}
+
+impl AwsDomainName for String {
+    fn as_internal(&self) -> &str {
+        self.strip_suffix('.').unwrap_or(self)
+    }
+
+    fn to_aws(&self) -> String {
+        self.as_internal().to_string().add(".")
+    }
+}
+
+trait AwsHostedZone {
+    fn zone_id(&self) -> String;
+}
+
+impl AwsHostedZone for HostedZone {
+    fn zone_id(&self) -> String {
+        self.id
+            .as_ref()
+            .map(|zone| {
+                if let Some(i) = zone.rfind('/') {
+                    zone[i + 1..].to_string()
+                } else {
+                    zone.to_string()
+                }
+            })
+            .unwrap()
+    }
+}
+
+trait AwsRecord {
+    fn to_resource_record_set(&self) -> ResourceRecordSet;
+}
+
+impl AwsRecord for Record {
+    fn to_resource_record_set(&self) -> ResourceRecordSet {
+        let (name, r#type, value, ttl) = match self {
+            Record::A { name, value, ttl } => (name.to_aws(), RrType::A, value.to_string(), *ttl),
+            Record::AAAA { name, value, ttl } => {
+                (name.to_aws(), RrType::Aaaa, value.to_string(), *ttl)
+            }
+        };
+
+        ResourceRecordSet::builder()
+            .name(name)
+            .r#type(r#type)
+            .resource_records(ResourceRecord::builder().value(value).build())
+            .ttl(ttl.into())
+            .build()
+    }
 }

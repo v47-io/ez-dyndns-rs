@@ -79,15 +79,23 @@ impl PartialEq for Zone {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Record {
-    A { name: String, value: Ipv4Addr },
-    AAAA { name: String, value: Ipv6Addr },
+    A {
+        name: String,
+        value: Ipv4Addr,
+        ttl: u32,
+    },
+    AAAA {
+        name: String,
+        value: Ipv6Addr,
+        ttl: u32,
+    },
 }
 
 impl Display for Record {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Record::A { name, value } => write!(f, "(A {}): {}", name, value),
-            Record::AAAA { name, value } => write!(f, "(AAAA {}): {}", name, value),
+            Record::A { name, value, .. } => write!(f, "(A {}): {}", name, value),
+            Record::AAAA { name, value, .. } => write!(f, "(AAAA {}): {}", name, value),
         }
     }
 }

@@ -58,9 +58,17 @@ pub(crate) fn get_ip() -> DynResult<Ip> {
         .into_string()
         .context("failed to decode response")?;
 
-    Ok(if raw_ip.contains(':') {
-        Ip::V6(Ipv6Addr::from_str(&raw_ip).context("failed to parse IPv6")?)
+    let trimmed_ip = raw_ip.trim();
+
+    Ok(if trimmed_ip.contains(':') {
+        Ip::V6(
+            Ipv6Addr::from_str(trimmed_ip)
+                .context(format!("failed to parse IPv6: {}", trimmed_ip))?,
+        )
     } else {
-        Ip::V4(Ipv4Addr::from_str(&raw_ip).context("failed to parse IPv4")?)
+        Ip::V4(
+            Ipv4Addr::from_str(trimmed_ip)
+                .context(format!("failed to parse IPv4: {}", trimmed_ip))?,
+        )
     })
 }

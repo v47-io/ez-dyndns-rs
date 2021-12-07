@@ -35,6 +35,8 @@ use dyndns::ez;
 use dyndns_aws_route53::AwsRoute53Provider;
 
 fn main() {
+    // tracing_subscriber::fmt::init();
+
     ez::cli(
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),

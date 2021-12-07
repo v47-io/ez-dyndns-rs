@@ -44,6 +44,8 @@ use crate::result::DynResult;
 
 const DEFAULT_INTERVAL: u64 = 1800;
 
+const DEFAULT_TTL: u32 = 300;
+
 #[serde_as]
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct Config {
@@ -64,6 +66,12 @@ pub struct DomainRecord {
     pub a: Option<String>,
     #[serde(alias = "AAAA")]
     pub aaaa: Option<String>,
+    #[serde(default = "default_ttl")]
+    pub ttl: u32,
+}
+
+fn default_ttl() -> u32 {
+    DEFAULT_TTL
 }
 
 pub fn load_config<P: AsRef<Path>>(source: P) -> DynResult<Config> {
@@ -134,10 +142,12 @@ zones:
                 DomainRecord {
                     a: Some("*.test.com".into()),
                     aaaa: None,
+                    ttl: default_ttl(),
                 },
                 DomainRecord {
                     a: Some("test.com".into()),
                     aaaa: None,
+                    ttl: default_ttl(),
                 },
             ],
         );

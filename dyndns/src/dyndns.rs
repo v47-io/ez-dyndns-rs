@@ -66,15 +66,17 @@ pub fn run<P: DnsProvider>(config: &Config, provider: &P) {
 }
 
 pub fn run_once<P: DnsProvider>(config: &Config, provider: &P) -> DynResult<()> {
-    println!("Updating DNS records at {}", Local::now());
-
     let current_ip = get_ip().context("failed to retrieve external IP address")?;
 
-    println!("Detected external IP address: {}", current_ip);
+    println!("External IP address: {}", current_ip);
+
+    println!("Fetching current DNS records");
 
     let current_zones = provider
         .current(config)
         .context("failed to retrieve current DNS data")?;
+
+    println!("Updating DNS records at {}", Local::now());
 
     config.zones.iter().for_each(|(zone, records)| {
         println!("---");
@@ -86,6 +88,7 @@ pub fn run_once<P: DnsProvider>(config: &Config, provider: &P) -> DynResult<()> 
                 zone.as_str(),
                 record.a.as_deref(),
                 ipv4,
+                record.ttl,
                 &current_zones,
             ),
             Ip::V6(ipv6) => update_aaaa_record(
@@ -93,6 +96,7 @@ pub fn run_once<P: DnsProvider>(config: &Config, provider: &P) -> DynResult<()> 
                 zone.as_str(),
                 record.aaaa.as_deref(),
                 ipv6,
+                record.ttl,
                 &current_zones,
             ),
         });
@@ -109,6 +113,7 @@ fn update_a_record<P: DnsProvider>(
     zone: &str,
     a_record: Option<&str>,
     address: &Ipv4Addr,
+    ttl: u32,
     current_zones: &DnsZones,
 ) {
     let a_record = if let Some(a_record) = a_record {
@@ -144,6 +149,7 @@ fn update_a_record<P: DnsProvider>(
     let new_record = Record::A {
         name: a_record.to_string(),
         value: *address,
+        ttl,
     };
 
     if let Some(current_value) = current_value {
@@ -154,7 +160,7 @@ fn update_a_record<P: DnsProvider>(
             );
             wrap_update(provider, &zone, new_record)
         } else {
-            println!("Not updating {}: Unchanged", a_record);
+            println!("Not updating A record {}: Unchanged", a_record);
         }
     } else {
         println!("Creating A record {}: {}", a_record, address);
@@ -167,6 +173,7 @@ fn update_aaaa_record<P: DnsProvider>(
     zone: &str,
     aaaa_record: Option<&str>,
     address: &Ipv6Addr,
+    ttl: u32,
     current_zones: &DnsZones,
 ) {
     let aaaa_record = if let Some(aaaa_record) = aaaa_record {
@@ -202,6 +209,7 @@ fn update_aaaa_record<P: DnsProvider>(
     let new_record = Record::AAAA {
         name: aaaa_record.to_string(),
         value: *address,
+        ttl,
     };
 
     if let Some(current_value) = current_value {
@@ -212,7 +220,7 @@ fn update_aaaa_record<P: DnsProvider>(
             );
             wrap_update(provider, &zone, new_record)
         } else {
-            println!("Not updating {}: Unchanged", aaaa_record);
+            println!("Not updating AAAA record {}: Unchanged", aaaa_record);
         }
     } else {
         println!("Creating AAAA record {}: {}", aaaa_record, address);
