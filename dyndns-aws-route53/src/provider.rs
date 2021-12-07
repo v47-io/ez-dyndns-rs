@@ -36,7 +36,7 @@ use aws_sdk_route53::model::{
     Change, ChangeAction, ChangeBatch, HostedZone, ResourceRecord, ResourceRecordSet, RrType,
 };
 use aws_sdk_route53::{Client, Region};
-use dyndns::anyhow::{Context, Error};
+use dyndns::anyhow::Error;
 use dyndns::config::Config;
 use dyndns::provider::{DnsProvider, DnsRecords, DnsZones, Record, Zone};
 use dyndns::result::DynResult;
@@ -225,7 +225,7 @@ async fn update(provider: &AwsRoute53Provider, zone: &Zone, record: Record) -> D
         return Ok(());
     };
 
-    let change_resource_record_set_request = provider
+    provider
         .client
         .change_resource_record_sets()
         .hosted_zone_id(zone_id)
@@ -253,12 +253,9 @@ async fn update(provider: &AwsRoute53Provider, zone: &Zone, record: Record) -> D
                         .build(),
                 )
                 .build(),
-        );
-
-    change_resource_record_set_request
+        )
         .send()
-        .await
-        .context(format!("failed to update record {}", record))?;
+        .await?;
 
     Ok(())
 }

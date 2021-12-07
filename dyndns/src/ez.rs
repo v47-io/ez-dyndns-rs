@@ -58,7 +58,7 @@ where
     let config_path = match pargs.free_from_str::<PathBuf>() {
         Ok(path) => path,
         Err(err) => {
-            eprintln!("{:?}", Error::from(err).context("invalid config path"));
+            eprintln!("{:?}\n", Error::from(err).context("invalid config path"));
             print_help(name, version);
             exit(1);
         }
@@ -73,7 +73,7 @@ where
 
 fn print_help(name: &str, version: &str) {
     println!(
-        r#"\
+        "\
 {name} {}
 Updates DNS entries to match your external IP address
 
@@ -88,7 +88,7 @@ FLAGS:
 
 ARGS:
   <CONFIG>              Path to the configuration file
-"#,
+",
         version,
         name = name
     )
