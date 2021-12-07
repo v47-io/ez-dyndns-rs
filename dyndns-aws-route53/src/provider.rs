@@ -133,7 +133,10 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
 
         let aws_zone_id = aws_zone.zone_id();
         let aws_zone_name = aws_zone.name.unwrap();
-        let configured_zone = config.zones.get(aws_zone_name.as_internal()).unwrap();
+
+        if !config.zones.contains_key(aws_zone_name.as_internal()) {
+            continue;
+        }
 
         let mut last_aws_record_identifier = None;
         loop {
@@ -157,26 +160,6 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                                     record_set.name.unwrap().as_internal().to_string();
 
                                 let record_set_type = record_set.r#type.unwrap();
-
-                                configured_zone
-                                    .iter()
-                                    .find(|record| match record_set_type {
-                                        RrType::A => {
-                                            if let Some(a_record) = record.a.as_ref() {
-                                                a_record == &record_set_name
-                                            } else {
-                                                false
-                                            }
-                                        }
-                                        RrType::Aaaa => {
-                                            if let Some(aaaa_record) = record.aaaa.as_ref() {
-                                                aaaa_record == &record_set_name
-                                            } else {
-                                                false
-                                            }
-                                        }
-                                        _ => false,
-                                    })?;
 
                                 let records = record_set.resource_records.unwrap_or_default();
                                 if !records.is_empty() {

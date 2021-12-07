@@ -31,15 +31,13 @@
  *
  */
 
-pub use crate::dyndns::*;
-pub use anyhow;
-pub use pico_args;
-pub use ureq;
+use dyndns::ez;
+use dyndns_gandi_livedns::GandiLivednsProvider;
 
-pub mod config;
-mod dyndns;
-pub mod ez;
-mod ip;
-mod job;
-pub mod provider;
-pub mod result;
+fn main() {
+    ez::cli(
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        GandiLivednsProvider::default,
+    )
+}

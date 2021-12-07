@@ -31,28 +31,7 @@
  *
  */
 
-use anyhow::Context;
-use std::borrow::Borrow;
-use std::env;
-use std::ffi::OsStr;
+pub use crate::provider::GandiLivednsProvider;
 
-use zeroize::Zeroize;
-
-use crate::result::DynResult;
-
-#[derive(Zeroize)]
-#[zeroize(drop)]
-pub struct Secret(String);
-
-impl Borrow<str> for Secret {
-    fn borrow(&self) -> &str {
-        self.0.as_ref()
-    }
-}
-
-pub fn secret<K: AsRef<OsStr>>(key: K) -> DynResult<Secret> {
-    env::var(key.as_ref()).map(Secret).context(format!(
-        "failed to retrieve env var {}",
-        key.as_ref().to_string_lossy()
-    ))
-}
+mod client;
+mod provider;
