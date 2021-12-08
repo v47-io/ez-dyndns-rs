@@ -32,8 +32,10 @@
  */
 
 use dyndns::anyhow::{Context, Error};
+use dyndns::provider::Record;
 use dyndns::result::DynResult;
 use dyndns::ureq;
+use std::cmp::max;
 use std::env;
 
 use crate::client::model::*;
@@ -94,10 +96,63 @@ impl LDClient {
             ))
     }
 
+    pub(crate) fn put_record(&self, zone: &str, record: Record) -> DynResult<()> {
+        let (name, r#type, value, ttl) = match &record {
+            Record::A { name, value, ttl } => (
+                name.gandi_record_name(zone),
+                LDRecordType::A,
+                value.to_string(),
+                *ttl,
+            ),
+            Record::AAAA { name, value, ttl } => (
+                name.gandi_record_name(zone),
+                LDRecordType::Aaaa,
+                value.to_string(),
+                *ttl,
+            ),
+        };
+
+        let response = ureq::put(&format!(
+            "{}/domains/{}/records/{}/{}",
+            BASE_URL, zone, name, r#type
+        ))
+        .set("Authorization", &format!("Apikey {}", self.api_key()?))
+        .send_json(dyndns::ureq::json!({
+            "rrset_values": [value],
+            "rrset_ttl": max(300, ttl)
+        }))
+        .context("failed to call LiveDNS")?;
+
+        if response.status() == 201 {
+            Ok(())
+        } else {
+            Err(Error::msg(format!(
+                "Unexpected response status: {}",
+                response.status()
+            )))
+        }
+    }
+
     fn api_key(&self) -> DynResult<&str> {
         match &self.api_key {
             Some(api_key) => Ok(api_key.as_str()),
             _ => Err(Error::msg("Gandi LiveDNS API Key not configured")),
+        }
+    }
+}
+
+trait GandiRecord {
+    fn gandi_record_name(&self, zone: &str) -> &str;
+}
+
+impl GandiRecord for String {
+    fn gandi_record_name(&self, zone: &str) -> &str {
+        let stripped = self.strip_suffix(zone).unwrap_or_else(|| self.as_str());
+
+        if let Some(i) = stripped.rfind('.') {
+            &stripped[..i]
+        } else {
+            stripped
         }
     }
 }

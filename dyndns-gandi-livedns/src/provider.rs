@@ -86,7 +86,7 @@ impl DnsProvider for GandiLivednsProvider {
     }
 
     fn update(&self, zone: &Zone, record: Record) -> DynResult<()> {
-        todo!()
+        self.client.put_record(zone.name.as_str(), record)
     }
 }
 
