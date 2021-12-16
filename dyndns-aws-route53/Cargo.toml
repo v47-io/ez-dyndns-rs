@@ -16,5 +16,5 @@ tokio = { version = "1", features = ["full"] }
 # tracing-subscriber = { version = "0.3.3", features = ["env-filter"] }
 
 [[bin]]
-name = "dyndnsd-aws-route53"
+name = "dyndns-aws-route53"
 path = "src/bin.rs"

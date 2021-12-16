@@ -1,7 +1,7 @@
 # ez-dyndns-rs
 
-ez-dyndns-rs is an easy-to-use dynamic DNS suite that requires minimal configuration 
-and "Just Works".
+ez-dyndns-rs is a suite of easy-to-use dynamic DNS clients that require minimal configuration 
+and "Just Work".
 
 It supports the following providers:
   - AWS Route 53
@@ -33,7 +33,7 @@ or IPv6, not both.
 
 ## Executables
 
-Each implementation crate provides a daemon executable, e.g. `dyndnsd-gandi-livedns` which
+Each implementation crate provides a daemon executable, e.g. `dyndns-gandi-livedns` which
 checks for a changed external IP address per the configured interval.
 
 To start the daemon execute it and provide the path to the configuration file via a positional 
