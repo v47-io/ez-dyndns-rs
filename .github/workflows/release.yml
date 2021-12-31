@@ -18,6 +18,8 @@ jobs:
       - uses: 'docker://clux/muslrust:1.57.0'
         with:
           args: cargo +stable build --release
+        env:
+          CARGO_BUILD_TARGET: x86_64-unknown-linux-musl
 
       - uses: actions/upload-artifact@v2
         with:
