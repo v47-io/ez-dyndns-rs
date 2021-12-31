@@ -22,6 +22,8 @@ jobs:
 
   build-binaries:
     name: Build Binaries
+    needs:
+      - prepare-release
 
     runs-on: ubuntu-latest
     container:
