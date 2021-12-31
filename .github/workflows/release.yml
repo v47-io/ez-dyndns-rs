@@ -1,0 +1,41 @@
+on:
+  push:
+    tags:
+      - r*
+
+jobs:
+  prepare-release:
+    name: Prepare Cargo Manifests
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - run: echo "RELEASE=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
+      - uses: actions/checkout@v2
+      - run: .github/scripts/prepare-manifests.py ${RELEASE}
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: prepared-manifests
+          path: '**/Cargo.toml'
+
+  build-binaries:
+    name: Build Binaries
+
+    runs-on: ubuntu-latest
+    container:
+      image: clux/muslrust:1.57.0
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        id: download-manifests
+        with:
+          name: prepared-manifests
+
+      - run: cargo build --release
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: binaries
+          path: target/x86_64-unknown-linux-musl/release/dyndns-*
