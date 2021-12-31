@@ -45,8 +45,12 @@ root_dir = abspath('.')
 
 for cur_dir, dirs, files in walk(root_dir, topdown=True):
     if cur_dir == root_dir:
-        dirs.remove('.github')
-        dirs.remove('target')
+        if '.github' in dirs:
+            dirs.remove('.github')
+
+        if 'target' in dirs:
+            dirs.remove('target')
+
         continue
 
     if MANIFEST in files:
