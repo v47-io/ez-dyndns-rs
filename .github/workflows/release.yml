@@ -12,6 +12,7 @@ jobs:
     steps:
       - run: echo "RELEASE=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
       - uses: actions/checkout@v2
+      - run: pip3 install -r .github/scripts/requirements.txt
       - run: .github/scripts/prepare-manifests.py ${RELEASE}
 
       - uses: actions/upload-artifact@v2
