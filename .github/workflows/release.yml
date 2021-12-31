@@ -5,7 +5,7 @@ on:
 
 jobs:
   release:
-    name: Prepare Cargo Manifests
+    name: Release ez-dyndns-rs
 
     runs-on: ubuntu-latest
 
@@ -17,7 +17,7 @@ jobs:
 
       - uses: 'docker://clux/muslrust:1.57.0'
         with:
-          args: cargo build --release
+          args: cargo +stable build --release
 
       - uses: actions/upload-artifact@v2
         with:
