@@ -29,16 +29,6 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-#  BSD 3-Clause License
-#
-#
-#  Redistribution and use in source and binary forms, with or without
-#  modification, are permitted provided that the following conditions are met:
-#
-#
-#
-#
-#
 
 import re
 
@@ -50,6 +40,12 @@ _version_match = _VERSION_REGEX.match(argv[1])
 
 if not _version_match:
     raise ValueError("Not a valid version: %s" % argv[1])
+
+with open('RELEASE', 'r') as release_file:
+    release = release_file.readline().strip()
+
+if release != _version_match.group(0):
+    raise ValueError("RELEASE file contains wrong release version")
 
 version_number = int(_version_match.group(1))
 version = "%d.0.0" % version_number

@@ -31,9 +31,10 @@
  *
  */
 
-use anyhow::Error;
 use std::path::{Path, PathBuf};
 use std::process::exit;
+
+use anyhow::Error;
 
 use crate::config::load_config;
 use crate::provider::DnsProvider;
@@ -42,6 +43,8 @@ pub fn cli<F, D: DnsProvider>(name: &str, version: &str, provider: F)
 where
     F: Fn() -> D,
 {
+    let version = &version[..version.find('.').unwrap()];
+
     let mut pargs = pico_args::Arguments::from_env();
 
     if pargs.contains(["-h", "--help"]) {
@@ -50,7 +53,7 @@ where
     }
 
     if pargs.contains("--version") {
-        println!("{} {}", name, version);
+        println!("{} r{}", name, version);
         exit(0);
     }
 
@@ -74,7 +77,7 @@ where
 fn print_help(name: &str, version: &str) {
     println!(
         "\
-{name} {}
+{name} r{}
 Updates DNS entries to match your external IP address
 
 USAGE:

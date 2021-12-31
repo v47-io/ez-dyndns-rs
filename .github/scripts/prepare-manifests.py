@@ -31,16 +31,6 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-#  BSD 3-Clause License
-#
-#
-#  Redistribution and use in source and binary forms, with or without
-#  modification, are permitted provided that the following conditions are met:
-#
-#
-#
-#
-#
 
 from os import walk
 from os.path import abspath, join

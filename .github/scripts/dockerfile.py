@@ -41,7 +41,7 @@ with open('.github/docker/Dockerfile.hbs', 'r') as template_file:
 _dockerfile_path = abspath('Dockerfile')
 
 
-def create_dockerfile(executable: str):
+def prepare_dockerfile(executable: str):
     rendered_dockerfile = _template({'executable': executable})
 
     with open('Dockerfile', 'w') as dockerfile:

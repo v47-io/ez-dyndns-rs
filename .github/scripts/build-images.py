@@ -31,40 +31,35 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-#  BSD 3-Clause License
-#
-#
-#  Redistribution and use in source and binary forms, with or without
-#  modification, are permitted provided that the following conditions are met:
-#
-#
-#
-#
-#
 
 import re
 from os import listdir
 from os.path import abspath, join
 from subprocess import run
 
-from dockerfile import create_dockerfile
+from dockerfile import prepare_dockerfile
+from version import version_number
 
 EXEC_REGEX = re.compile(r'^dyndns-[a-z0-9-]+?$')
 
 root_dir = abspath('./target/x86_64-unknown-linux-musl/release')
 
 executables = filter(lambda name: EXEC_REGEX.match(name), listdir(root_dir))
-images = []
 
 for executable in executables:
     print(f"Building docker image for {executable}")
 
-    image_name = f"v47io/ez-{executable}"
-    images += image_name
+    image_name = f"v47io/ez-{executable}:r{version_number}"
+    latest_name = f"v47io/ez-{executable}:latest"
 
-    create_dockerfile(executable)
+    prepare_dockerfile(executable)
 
     print(f"Image name: {image_name}")
 
-    run(['chmod', '+x', join(root_dir, executable)])
+    run(['chmod', '+x', join(root_dir, executable)]).check_returncode()
     run(['docker', 'build', '-t', image_name, '.']).check_returncode()
+
+    run(['docker', 'push', image_name]).check_returncode()
+
+    run(['docker', 'tag', image_name, latest_name]).check_returncode()
+    run(['docker', 'push', latest_name]).check_returncode()
