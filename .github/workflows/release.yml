@@ -15,11 +15,9 @@ jobs:
       - run: pip3 install -r .github/scripts/requirements.txt
       - run: .github/scripts/prepare-manifests.py ${RELEASE}
 
-      - uses: 'docker://clux/muslrust:1.57.0'
-        with:
-          args: cargo +stable build --release
-        env:
-          CARGO_BUILD_TARGET: x86_64-unknown-linux-musl
+      - name: Build binaries
+        run: |
+          docker run --rm -v $(pwd):/volume clux/muslrust:1.57.0 cargo build --release
 
       - uses: actions/upload-artifact@v2
         with:
