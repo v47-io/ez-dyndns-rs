@@ -445,6 +445,7 @@ dependencies = [
  "serde_yaml",
  "tempfile",
  "ureq",
+ "webpki-roots",
 ]
 
 [[package]]
