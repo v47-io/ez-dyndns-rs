@@ -36,4 +36,4 @@ USER  1000
 
 COPY  target/x86_64-unknown-linux-musl/release/{{ executable }} .
 
-ENTRYPOINT ["{{ executable }}"]
+ENTRYPOINT ["/{{ executable }}"]
