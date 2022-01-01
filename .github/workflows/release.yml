@@ -15,9 +15,14 @@ jobs:
       - run: pip3 install -r .github/scripts/requirements.txt
       - run: .github/scripts/prepare-manifests.py ${RELEASE}
 
+      - uses: actions/cache@v2
+        with:
+          path: target/x86_64-unknown-linux-musl
+
       - name: Build binaries
         run: |
           docker run --rm -v $(pwd):/volume clux/muslrust:1.57.0 cargo build --release
+          sudo chown -R 1000:root target/x86_64-unknown-linux-musl
 
       - uses: docker/login-action@v1
         with:
