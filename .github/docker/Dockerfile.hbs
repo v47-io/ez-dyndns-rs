@@ -29,11 +29,20 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+FROM alpine:latest AS work
+
+WORKDIR /work
+
+COPY  target/x86_64-unknown-linux-musl/release/{{ executable }} .
+RUN   chown 1000:1000 {{ executable }} && \
+      chmod +x {{ executable }}
+
 FROM  scratch
 LABEL author="Alex Katlein <dev@vemilyus.com>"
 
-USER  1000
+COPY  --from=work /etc/ssl/certs /etc/ssl/certs
+COPY  --from=work /work/{{ executable }} .
 
-COPY  target/x86_64-unknown-linux-musl/release/{{ executable }} .
+USER  1000
 
 ENTRYPOINT ["/{{ executable }}"]

@@ -56,9 +56,7 @@ for executable in executables:
 
     print(f"Image name: {image_name}")
 
-    run(['chmod', '+x', join(root_dir, executable)]).check_returncode()
     run(['docker', 'build', '-t', image_name, '.']).check_returncode()
-
     run(['docker', 'push', image_name]).check_returncode()
 
     run(['docker', 'tag', image_name, latest_name]).check_returncode()
