@@ -23,7 +23,9 @@ jobs:
       - name: Build binaries
         run: |
           docker run --rm -v $(pwd):/volume clux/muslrust:1.57.0 cargo build --release
-          sudo chown -R 1000:root target/x86_64-unknown-linux-musl
+          
+          OWNER=$(id -u):$(id -g)
+          sudo chown -R ${OWNER} target/x86_64-unknown-linux-musl
 
       - uses: docker/login-action@v1
         with:
