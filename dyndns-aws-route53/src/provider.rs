@@ -31,21 +31,26 @@
  *
  */
 
-use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_route53::model::{
-    Change, ChangeAction, ChangeBatch, HostedZone, ResourceRecord, ResourceRecordSet, RrType,
-};
-use aws_sdk_route53::{Client, Region};
-use dyndns::config::Config;
-use dyndns::provider::{DnsProvider, DnsRecords, DnsZones, Record, Zone};
-use dyndns::result::DynResult;
 use std::collections::HashMap;
 use std::error::Error;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::ops::Add;
 use std::rc::Rc;
 use std::str::FromStr;
+
+use aws_config::meta::region::RegionProviderChain;
+use aws_sdk_route53::model::{
+    Change, ChangeAction, ChangeBatch, HostedZone, ResourceRecord, ResourceRecordSet, RrType,
+};
+use aws_sdk_route53::{Client, Region};
+use lazy_static::lazy_static;
+use lexical::NumberFormatBuilder;
+use regex::{Captures, Regex};
 use tokio::runtime::Runtime;
+
+use dyndns::config::Config;
+use dyndns::provider::{DnsProvider, DnsRecords, DnsZones, Record, Zone};
+use dyndns::result::DynResult;
 
 pub struct AwsRoute53Provider {
     runtime: Rc<Runtime>,
@@ -108,7 +113,7 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                         .into_iter()
                         .filter(|hosted_zone| {
                             if let Some(hz_name) = &hosted_zone.name {
-                                config.zones.contains_key(hz_name.as_internal())
+                                config.zones.contains_key(&hz_name.as_internal())
                             } else {
                                 false
                             }
@@ -134,7 +139,7 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
         let aws_zone_id = aws_zone.zone_id();
         let aws_zone_name = aws_zone.name.unwrap();
 
-        if !config.zones.contains_key(aws_zone_name.as_internal()) {
+        if !config.zones.contains_key(&aws_zone_name.as_internal()) {
             continue;
         }
 
@@ -156,8 +161,7 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
                             .unwrap_or_default()
                             .into_iter()
                             .filter_map(|record_set| {
-                                let record_set_name =
-                                    record_set.name.unwrap().as_internal().to_string();
+                                let record_set_name = record_set.name.unwrap().as_internal();
 
                                 let record_set_type = record_set.r#type.unwrap();
 
@@ -217,7 +221,7 @@ async fn current(provider: &AwsRoute53Provider, config: &Config) -> DynResult<Dn
         }
 
         result.insert(
-            Zone::with_id(aws_zone_name.as_internal().into(), aws_zone_id),
+            Zone::with_id(aws_zone_name.as_internal(), aws_zone_id),
             dns_records,
         );
     }
@@ -254,18 +258,44 @@ async fn update(provider: &AwsRoute53Provider, zone: &Zone, record: Record) -> D
 }
 
 trait AwsDomainName {
-    fn as_internal(&self) -> &str;
+    fn as_internal(&self) -> String;
 
     fn to_aws(&self) -> String;
 }
 
+lazy_static! {
+    static ref OCTAL_ESCAPE_RE: Regex = Regex::from_str(r"\\(0[0-7]{2})").unwrap();
+}
+
 impl AwsDomainName for String {
-    fn as_internal(&self) -> &str {
-        self.strip_suffix('.').unwrap_or(self)
+    fn as_internal(&self) -> String {
+        const OCTAL_NUMBER_FORMAT: u128 = NumberFormatBuilder::octal();
+
+        let stripped = self.strip_suffix('.').unwrap_or(self);
+
+        OCTAL_ESCAPE_RE
+            .replace(stripped, |captures: &Captures| {
+                let final_char = lexical::parse_with_options::<u32, _, OCTAL_NUMBER_FORMAT>(
+                    captures.get(1).unwrap().as_str(),
+                    &lexical::parse_integer_options::STANDARD,
+                )
+                .map(char::from_u32);
+
+                match final_char {
+                    Ok(Some(char)) => char.to_string(),
+                    err => {
+                        let capture = captures.get(0).unwrap().as_str();
+                        eprintln!("Failed to convert {} into character ({:?})", capture, err);
+
+                        capture.to_string()
+                    }
+                }
+            })
+            .to_string()
     }
 
     fn to_aws(&self) -> String {
-        self.as_internal().to_string().add(".")
+        self.as_internal().add(".")
     }
 }
 

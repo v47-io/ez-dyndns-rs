@@ -11,6 +11,9 @@ license = "BSD 3-Clause"
 dyndns = { path = "../dyndns" }
 aws-config = "0.2"
 aws-sdk-route53 = { version = "0.2", features = ["rustls"] }
+lazy_static = "1"
+lexical = { version = "6", features = ["std", "parse-integers", "radix"] }
+regex = "1"
 tokio = { version = "1", features = ["full"] }
 # tracing = "0.1.29"
 # tracing-subscriber = { version = "0.3.3", features = ["env-filter"] }
